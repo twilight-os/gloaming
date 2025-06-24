@@ -1,0 +1,96 @@
+#! /bin/sh
+
+set -ex
+
+srcdir="$(dirname "$0")"
+test -z "$srcdir" && srcdir=.
+
+cd "$srcdir"
+
+clone_repo_commit() {
+    if test -d "$2/.git"; then
+        git -C "$2" reset --hard
+        git -C "$2" clean -fd
+        if ! git -C "$2" checkout $3; then
+            rm -rf "$2"
+        fi
+    else
+        if test -d "$2"; then
+            set +x
+            echo "error: '$2' is not a Git repository"
+            exit 1
+        fi
+    fi
+    if ! test -d "$2"; then
+        git clone $1 "$2"
+        if ! git -C "$2" checkout $3; then
+            rm -rf "$2"
+            exit 1
+        fi
+    fi
+}
+
+download_by_hash() {
+    DOWNLOAD_COMMAND="curl -Lo"
+    if ! command -v "${DOWNLOAD_COMMAND%% *}" >/dev/null 2>&1; then
+        DOWNLOAD_COMMAND="wget -O"
+        if ! command -v "${DOWNLOAD_COMMAND%% *}" >/dev/null 2>&1; then
+            set +x
+            echo "error: Neither curl nor wget found"
+            exit 1
+        fi
+    fi
+    SHA256_COMMAND="sha256sum"
+    if ! command -v "${SHA256_COMMAND%% *}" >/dev/null 2>&1; then
+        SHA256_COMMAND="sha256"
+        if ! command -v "${SHA256_COMMAND%% *}" >/dev/null 2>&1; then
+            set +x
+            echo "error: Cannot find sha256(sum) command"
+            exit 1
+        fi
+    fi
+    if ! test -f "$2" || ! $SHA256_COMMAND "$2" | grep $3 >/dev/null 2>&1; then
+        rm -f "$2"
+        mkdir -p "$2" && rm -rf "$2"
+        $DOWNLOAD_COMMAND "$2" $1
+        if ! $SHA256_COMMAND "$2" | grep $3 >/dev/null 2>&1; then
+            set +x
+            echo "error: Cannot download file '$2' by hash"
+            echo "incorrect hash:"
+            $SHA256_COMMAND "$2"
+            rm -f "$2"
+            exit 1
+        fi
+    fi
+}
+
+clone_repo_commit \
+    https://codeberg.org/osdev/freestnd-c-hdrs-0bsd.git \
+    freestnd-c-hdrs-0bsd \
+    a87c192f3eb66b0806740dc67325f9ad23fc2d0b
+
+clone_repo_commit \
+    https://codeberg.org/osdev/freestnd-c-hdrs.git \
+    freestnd-c-hdrs \
+    4039f438fb1dc1064d8e98f70e1cf122f91b763b
+
+clone_repo_commit \
+    https://codeberg.org/osdev/cc-runtime.git \
+    cc-runtime \
+    dae79833b57a01b9fd3e359ee31def69f5ae899b
+
+clone_repo_commit \
+    https://codeberg.org/mintsuki/flanterm.git \
+    flanterm \
+    4cacad16218ba85d7d7f7566b2b3de46574c7d60
+
+download_by_hash \
+    https://raw.githubusercontent.com/UltraOS/UltraProtocol/edaaf53b976fea867b9ae953c6f2be1ab0a827d4/ultra_protocol.h \
+    src/ultra.h \
+    206865d5c7c76ff8ad26a26965e34faa11893a373e7739685747643ed25fe632
+
+download_by_hash \
+    https://github.com/charlesnicholson/nanoprintf/raw/bd3f1f7e47289da88b55281915e187a0df8abcaf/nanoprintf.h \
+    src/nanoprintf_orig.h \
+    ebe0341a49207c56f051b3756a57a299b63696bc3f5fc7196717a41f3d695c17
+sed '/NPF_WRITEBACK(LONG_DOUBLE/d' src/nanoprintf_orig.h >src/nanoprintf.h

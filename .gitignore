@@ -1,0 +1,10 @@
+/compile_commands.json
+/.cache
+/freestnd-c-hdrs
+/cc-runtime
+/freestnd-c-hdrs-0bsd
+/flanterm
+/src/ultra.h
+/src/nanoprintf*.h
+/bin-*
+/obj-*
